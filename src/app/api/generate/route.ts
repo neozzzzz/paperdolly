@@ -64,6 +64,23 @@ export async function POST(request: Request) {
   const { step, features, timestamp: ts } = body
   const timestamp = ts || Date.now()
 
+  // 사용량 제한 체크 (character step에서만 — 첫 생성 시점)
+  const UNLIMITED_EMAILS = ['bloody80@gmail.com']
+  if (step === 'character' && !UNLIMITED_EMAILS.includes(user.email || '')) {
+    const today = new Date().toISOString().split('T')[0]
+    const { count } = await supabaseAdmin
+      .from('paperdolly_generations')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .gte('created_at', `${today}T00:00:00.000Z`)
+    if ((count || 0) >= 1) {
+      return NextResponse.json({
+        error: 'daily_limit',
+        message: '오늘의 무료 생성 횟수를 모두 사용했어요. 내일 다시 만들어보세요!',
+      }, { status: 429 })
+    }
+  }
+
   try {
     // ─── Step 2: 기본 캐릭터 일러스트 생성 (참조용) ───
     if (step === 'character') {
@@ -75,7 +92,9 @@ Draw the character standing front-facing, arms slightly away from body, in a sim
 
 Style: Clean cute illustration, clean line and shape separation, white background, no other elements. The character should look like a paper doll base - clear outlines, clear silhouette, friendly expression.
 
-Important: Keep the character's distinctive features accurate - ${features.hair_style}, ${features.face_shape}, ${features.glasses || 'no glasses'}, ${features.accessories || 'no accessories'}.`
+Important: Keep the character's distinctive features accurate - ${features.hair_style}, ${features.face_shape}.
+${features.glasses ? `The character wears glasses: ${features.glasses}. Draw the exact same glasses shape and style on the character.` : 'The character does NOT wear glasses. Do NOT draw any glasses on the character.'}
+${features.accessories ? `Accessories: ${features.accessories}` : 'No accessories.'}`
 
       const charBuffer = await generateImage(prompt)
       if (!charBuffer) return NextResponse.json({ error: '캐릭터 생성 실패' }, { status: 500 })
@@ -94,55 +113,50 @@ Important: Keep the character's distinctive features accurate - ${features.hair_
 
     // ─── Step 3: 스타일별 도안 생성 (흑백) ───
     if (step === 'paperdoll') {
-      const { style, characterBase64 } = body
+      const { style, characterBase64, themeOutfits } = body
 
-      const styleMap: Record<string, { name: string; ratio: string; desc: string; outfits: string }> = {
+      const styleMap: Record<string, { name: string; ratio: string; desc: string }> = {
         sd: {
           name: 'SD 귀여운',
           ratio: '3-head-tall',
           desc: 'cute SD/kawaii style based on Simple Line proportions, slight head emphasis, bright eyes, soft outlines, print-first line structure',
-          outfits: `1. 봄나들이 - floral print sundress with clear flower patterns, matching sun hat with ribbon, cute mary-jane shoes with socks. Include hat as separate accessory piece.
-2. 발레리나 - layered tutu with gentle ruffles, fitted leotard, ballet pointe shoes, hair bow/tiara. Include headpiece as separate accessory.
-3. 한복 - traditional Korean hanbok with jeogori trim, flowing chima skirt folds, decorative norigae, traditional kkotsin.
-4. 파자마 - star/moon pattern pajama set (top + pants), fluffy bunny slippers, sleep mask as accessory piece.`,
         },
         simple: {
           name: '심플라인',
           ratio: '4-head-tall',
           desc: 'Simple Line base format. clean cute illustration, clear contour, balanced 4-head-tall proportions, face/hair features must stay very readable',
-          outfits: `1. 캐주얼 - denim overall dress over striped t-shirt, canvas sneakers with star detail, small backpack accessory
-2. 공주님 - layered ball gown with sparkle details, puffy sleeves, tiara with gems, wand with star, glass slippers
-3. 한복 - traditional Korean hanbok, jeogori with embroidered trim, full chima with sash, traditional hair ornament (binyeo), flower shoes
-4. 탐험가 - safari vest with pockets, cargo shorts, hiking boots with laces, wide-brim adventure hat, binoculars accessory`,
         },
         fashion: {
           name: '패션 일러스트',
           ratio: '5.5-head-tall',
           desc: 'fashion illustration upgraded from Simple Line, slightly taller proportions, richer fabric drape, premium edge while preserving base pose',
-          outfits: `1. 캐주얼 - trendy cropped cardigan, pleated midi skirt, platform sneakers, crossbody bag accessory
-2. 공주님 - elegant A-line gown with lace overlay, off-shoulder line, delicate tiara, satin gloves, crystal shoes
-3. 한복 - modernized hanbok (생활한복), short jeogori with contemporary cut, flowing chima, traditional embroidery meets modern design, traditional hair pin
-4. 탐험가 - chic utility jacket, fitted cargo pants, lace-up boots, bucket hat, vintage camera accessory`,
         },
       }
 
       const s = styleMap[style] || styleMap.simple
+
+      // Build outfits string from theme data
+      const outfitsStr = (themeOutfits as { name: string; name_en: string; desc: string }[])
+        .map((o, i) => `${i + 1}. ${o.name} (${o.name_en}) - ${o.desc}`)
+        .join('\n')
 
       const prompt = `Create a high-quality paper doll printable sheet. This should look like a professionally designed children's activity page.
 
 STYLE: ${s.desc}
 
 Base format rule: ${SIMPLELINE_BASE.sizeRule}; ${SIMPLELINE_BASE.poseRule}; ${SIMPLELINE_BASE.clothingRule}.
-Keep the character's face, hair, glasses, and distinctive features from the reference image but redraw in ${s.ratio} ${s.name} style.
+Keep the character's face, hair, and distinctive features from the reference image but redraw in ${s.ratio} ${s.name} style.
+${features?.glasses ? `The character wears glasses: ${features.glasses}. Keep the exact same glasses shape and style.` : 'The character does NOT wear glasses. Do NOT add glasses.'}
+${features?.accessories ? `Accessories: ${features.accessories}` : ''}
 
 LAYOUT on pure white background, A4 vertical format:
 
 TOP CENTER: The character in base outfit, standing ${SIMPLELINE_BASE.poseRule}. Dashed cutting line around the character.
 
-BOTTOM: 4 detailed outfit sets arranged in 2x2 grid. Each outfit is designed to be cut out and placed ON TOP of the doll (overlay style, no folding tabs). Dashed cutting lines around each piece. Each outfit should include matching shoes/accessories as separate pieces where noted.
+BOTTOM: ${themeOutfits.length} detailed outfit sets arranged in ${themeOutfits.length <= 4 ? '2x2' : '2x3'} grid. Each outfit is designed to be cut out and placed ON TOP of the doll (overlay style, no folding tabs). Dashed cutting lines around each piece. Each outfit should include matching shoes/accessories as separate pieces where noted.
 
 OUTFITS (with detailed accessories):
-${s.outfits}
+${outfitsStr}
 
 Korean label (한글) under each outfit name.
 
@@ -166,19 +180,21 @@ COLORING BOOK VERSION: Black line art outlines ONLY. NO color, NO shading, NO gr
 
     // ─── Step 4: 컬러 버전 생성 ───
     if (step === 'color') {
-      const { coloringBase64, style: styleId } = body
+      const { coloringBase64, style: styleId, themeOutfits: colorThemeOutfits } = body
 
-      const colorGuides: Record<string, string> = {
-        sd: `- 봄나들이: pastel pink/yellow floral dress, straw hat with pink ribbon, white mary-jane shoes\n- 발레리나: soft pink/white tutu with sparkle, satin pink pointe shoes, silver tiara\n- 한복: warm cherry-red jeogori with gold embroidery, deep blue chima, colorful norigae, white kkotsin\n- 파자마: soft lavender/mint pajamas with yellow stars, white fluffy bunny slippers with pink ears`,
-        simple: `- 캐주얼: blue denim overall, red/white striped tee, white sneakers with gold star\n- 공주님: sparkly pink/magenta ball gown, silver tiara with blue gems, gold wand with star\n- 한복: coral pink jeogori with gold trim, indigo blue chima with sash, jade hair ornament\n- 탐험가: khaki/olive vest, tan shorts, brown hiking boots, forest green hat`,
-        fashion: `- 캐주얼: cream cardigan, dusty rose pleated skirt, white platform sneakers, tan crossbody bag\n- 공주님: soft champagne gold gown with white lace overlay, silver tiara, pearl white gloves, crystal shoes\n- 한복: modern sage green jeogori, dusty pink chima, gold embroidery accents, traditional jade pin\n- 탐험가: olive utility jacket, tan cargo pants, cognac brown boots, beige bucket hat, vintage brown camera`,
+      // Build dynamic color guide from theme outfits
+      let colorGuide = ''
+      if (colorThemeOutfits && Array.isArray(colorThemeOutfits)) {
+        colorGuide = colorThemeOutfits
+          .map((o: { name: string; desc: string }) => `- ${o.name}: vibrant appropriate colors for ${o.desc}`)
+          .join('\n')
       }
 
       const prompt = `Take this exact black and white line art paper doll sheet and add beautiful, rich full color. Keep EVERYTHING exactly the same - same layout, same poses, same outlines, same proportions, same positions, same dashed cutting lines. 
 
 Color guide:
 - Character: warm natural skin tone, accurate hair color from the original design
-${colorGuides[styleId] || colorGuides.simple}
+${colorGuide}
 
 Apply colors with depth - use subtle shading and highlights to make each outfit look vibrant and appealing. Fabric patterns (flowers, stars, embroidery) should be colored in detail. Keep white background. Keep all dashed cutting lines visible. Identical layout to the line art.`
 

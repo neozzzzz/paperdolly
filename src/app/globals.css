@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+button, a, [role="button"], input[type="file"], .cursor-pointer {
+  cursor: pointer !important;
+}
+
+@keyframes search {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(3px, -3px); }
+  50% { transform: translate(-3px, 0); }
+  75% { transform: translate(2px, 3px); }
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;

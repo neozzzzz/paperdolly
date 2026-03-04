@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import GenerationCard from '@/components/GenerationCard'
 import Link from 'next/link'
 
 type Generation = {
@@ -65,34 +66,7 @@ export default async function DashboardV1_1Page() {
           {generations && generations.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {generations.map((gen) => (
-                <div key={gen.id} className="border border-gray-100 rounded-xl overflow-hidden hover:shadow-md transition">
-                  <div className="aspect-[3/4] relative bg-gray-50">
-                    <img
-                      src={gen.color_url || gen.coloring_url}
-                      alt="도안"
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                  <div className="p-3">
-                    <p className="text-sm text-gray-700 truncate">{gen.features}</p>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-xs text-gray-400">
-                        {new Date(gen.created_at).toLocaleDateString('ko-KR')}
-                      </span>
-                      <span className="text-xs px-2 py-1 bg-purple-100 text-purple-600 rounded-full">
-                        {gen.style === 'sd' ? 'SD' : gen.style === 'simple' ? '심플' : '패션'}
-                      </span>
-                    </div>
-                    <div className="flex gap-2 mt-2">
-                      {gen.coloring_url && (
-                        <a href={gen.coloring_url} download className="text-xs text-gray-500 hover:text-gray-800">✏️ 흑백</a>
-                      )}
-                      {gen.color_url && (
-                        <a href={gen.color_url} download className="text-xs text-purple-500 hover:text-purple-700">🎨 컬러</a>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                <GenerationCard key={gen.id} gen={gen} />
               ))}
             </div>
           ) : (
