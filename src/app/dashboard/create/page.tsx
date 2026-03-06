@@ -126,8 +126,8 @@ export default function CreatePage() {
         setFeatures(data.features)
         setFeatureText(data.features.summary)
       } else throw new Error(data.error)
-    } catch (err: any) {
-      alert('사진 분석 실패: ' + (err.message || '다시 시도해주세요'))
+    } catch (err: unknown) {
+      alert('사진 분석 실패: ' + (err instanceof Error ? err.message : '다시 시도해주세요'))
     } finally { setAnalyzing(false) }
   }
 
@@ -182,8 +182,8 @@ export default function CreatePage() {
       setCharacterUrl(charData.characterUrl)
       setCharacterBase64(charData.characterBase64)
       setWaitingCharConfirm(true)
-    } catch (err: any) {
-      alert('생성 실패: ' + (err.message || '다시 시도해주세요'))
+    } catch (err: unknown) {
+      alert('생성 실패: ' + (err instanceof Error ? err.message : '다시 시도해주세요'))
       setStep(1)
     } finally { setGenerating(false); setProgress('') }
   }
@@ -253,8 +253,8 @@ export default function CreatePage() {
       }).catch(() => {})
 
       setStep(3)
-    } catch (err: any) {
-      alert('생성 실패: ' + (err.message || '다시 시도해주세요'))
+    } catch (err: unknown) {
+      alert('생성 실패: ' + (err instanceof Error ? err.message : '다시 시도해주세요'))
       setStep(1)
     } finally { setGenerating(false); setProgress('') }
   }
@@ -679,7 +679,7 @@ export default function CreatePage() {
                 className="px-5 py-2 rounded-full text-sm font-medium bg-white/90 text-gray-700 hover:bg-white transition">
                 📄 PDF 다운로드
               </button>
-              <button onClick={handlePrint}
+              <button onClick={() => handlePrint()}
                 className="px-5 py-2 rounded-full text-sm font-medium bg-white/90 text-gray-700 hover:bg-white transition">
                 🖨️ 인쇄
               </button>

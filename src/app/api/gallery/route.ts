@@ -1,20 +1,9 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
 // 공개 갤러리 - 모든 사용자의 도안 (최신 50개)
 export async function GET() {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll(c) { c.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) },
-      },
-    }
-  )
+  const supabase = await createClient()
 
   const { data, error } = await supabase
     .from('paperdolly_generations')

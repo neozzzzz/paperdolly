@@ -1,22 +1,11 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { GoogleGenAI } from '@google/genai'
 import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! })
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll(c) { c.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) },
-      },
-    }
-  )
+  const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: '로그인이 필요합니다' }, { status: 401 })
@@ -32,7 +21,7 @@ export async function POST(request: Request) {
 
     // Step 1: 특징 추출
     const response = await genai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: process.env.GEMINI_FLASH_MODEL || 'gemini-2.0-flash',
       contents: [{
         role: 'user',
         parts: [
@@ -66,9 +55,10 @@ export async function POST(request: Request) {
     const features = JSON.parse(jsonMatch[0])
 
     return NextResponse.json({ features, photoBase64: base64, photoMime: mimeType })
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : '분석 중 오류가 발생했습니다'
     console.error('Analyze error:', err)
-    return NextResponse.json({ error: err.message || '분석 중 오류가 발생했습니다' }, { status: 500 })
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
 

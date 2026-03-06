@@ -41,7 +41,7 @@ async function generateImage(prompt: string, referenceBase64?: string, refMime =
   console.log(`[demo-generate] prompt length: ${prompt.length}, hasRef: ${!!referenceBase64}, refSize: ${referenceBase64 ? Math.round(referenceBase64.length / 1024) + 'KB' : 'none'}`)
 
   const response = await genai.models.generateContent({
-    model: 'gemini-3-pro-image-preview',
+    model: process.env.GEMINI_IMAGE_MODEL || 'gemini-3-pro-image-preview',
     contents: [{ role: 'user', parts }],
     config: {
       responseModalities: ['TEXT', 'IMAGE'] as const,

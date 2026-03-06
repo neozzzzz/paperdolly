@@ -1,40 +1,51 @@
-import { createServerClient } from '@supabase/ssr'
-import { createClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
 import { GoogleGenAI } from '@google/genai'
 import { NextResponse } from 'next/server'
-
-// Storage 업로드용 admin 클라이언트 (service_role)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! })
+const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-3-pro-image-preview'
+const UNLIMITED_EMAILS = (process.env.UNLIMITED_EMAILS || 'bloody80@gmail.com').split(',')
+const DAILY_LIMIT = parseInt(process.env.DAILY_LIMIT || '1', 10)
 
 async function generateImage(prompt: string, referenceBase64?: string, refMime?: string): Promise<Buffer | null> {
-  const parts: any[] = []
+  const parts: Array<{ inlineData?: { mimeType: string; data: string }; text?: string }> = []
   if (referenceBase64) {
     parts.push({ inlineData: { mimeType: refMime || 'image/png', data: referenceBase64 } })
   }
   parts.push({ text: prompt })
 
   const response = await genai.models.generateContent({
-    model: 'gemini-3-pro-image-preview',
+    model: GEMINI_IMAGE_MODEL,
     contents: [{ role: 'user', parts }],
-    config: { responseModalities: ['TEXT', 'IMAGE'] } as any,
+    config: { responseModalities: ['TEXT', 'IMAGE'] } as Record<string, unknown>,
   })
 
   const resParts = response.candidates?.[0]?.content?.parts
-  if (!resParts) return null
+  if (!resParts) {
+    console.error('[generateImage] No response parts from Gemini')
+    return null
+  }
   for (const part of resParts) {
-    if ((part as any).inlineData) {
-      const data = (part as any).inlineData.data
+    const inlineData = (part as { inlineData?: { data: string | Uint8Array } }).inlineData
+    if (inlineData) {
+      const data = inlineData.data
       if (typeof data === 'string') return Buffer.from(data, 'base64')
       if (data instanceof Uint8Array || Buffer.isBuffer(data)) return Buffer.from(data)
     }
   }
+  console.error('[generateImage] No image data found in response parts')
   return null
+}
+
+async function uploadImage(path: string, buffer: Buffer): Promise<string> {
+  const { error } = await supabaseAdmin.storage.from('paperdolly_images').upload(path, buffer, { contentType: 'image/png' })
+  if (error) {
+    console.error(`[uploadImage] Failed to upload ${path}:`, error.message)
+    throw new Error(`이미지 저장 실패: ${error.message}`)
+  }
+  const { data } = supabaseAdmin.storage.from('paperdolly_images').getPublicUrl(path)
+  return data.publicUrl
 }
 
 const SIMPLELINE_BASE = {
@@ -45,17 +56,7 @@ const SIMPLELINE_BASE = {
 
 // Step별 처리
 export async function POST(request: Request) {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll(c) { c.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) },
-      },
-    }
-  )
+  const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: '로그인이 필요합니다' }, { status: 401 })
@@ -65,7 +66,6 @@ export async function POST(request: Request) {
   const timestamp = ts || Date.now()
 
   // 사용량 제한 체크 (character step에서만 — 첫 생성 시점)
-  const UNLIMITED_EMAILS = ['bloody80@gmail.com']
   if (step === 'character' && !UNLIMITED_EMAILS.includes(user.email || '')) {
     const today = new Date().toISOString().split('T')[0]
     const { count } = await supabaseAdmin
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .gte('created_at', `${today}T00:00:00.000Z`)
-    if ((count || 0) >= 1) {
+    if ((count || 0) >= DAILY_LIMIT) {
       return NextResponse.json({
         error: 'daily_limit',
         message: '오늘의 무료 생성 횟수를 모두 사용했어요. 내일 다시 만들어보세요!',
@@ -100,12 +100,11 @@ ${features.accessories ? `Accessories: ${features.accessories}` : 'No accessorie
       if (!charBuffer) return NextResponse.json({ error: '캐릭터 생성 실패' }, { status: 500 })
 
       const charPath = `${user.id}/${timestamp}-character.png`
-      await supabaseAdmin.storage.from('paperdolly_images').upload(charPath, charBuffer, { contentType: 'image/png' })
-      const { data: charData } = supabaseAdmin.storage.from('paperdolly_images').getPublicUrl(charPath)
+      const characterUrl = await uploadImage(charPath, charBuffer)
 
       return NextResponse.json({
         step: 'character_done',
-        characterUrl: charData.publicUrl,
+        characterUrl,
         characterBase64: charBuffer.toString('base64'),
         timestamp,
       })
@@ -166,12 +165,11 @@ COLORING BOOK VERSION: Black line art outlines ONLY. NO color, NO shading, NO gr
       if (!dollBuffer) return NextResponse.json({ error: '도안 생성 실패' }, { status: 500 })
 
       const dollPath = `${user.id}/${timestamp}-${style}-coloring.png`
-      await supabaseAdmin.storage.from('paperdolly_images').upload(dollPath, dollBuffer, { contentType: 'image/png' })
-      const { data: dollData } = supabaseAdmin.storage.from('paperdolly_images').getPublicUrl(dollPath)
+      const coloringUrl = await uploadImage(dollPath, dollBuffer)
 
       return NextResponse.json({
         step: 'paperdoll_done',
-        coloringUrl: dollData.publicUrl,
+        coloringUrl,
         coloringBase64: dollBuffer.toString('base64'),
         style,
         timestamp,
@@ -202,21 +200,21 @@ Apply colors with depth - use subtle shading and highlights to make each outfit 
       if (!colorBuffer) return NextResponse.json({ error: '컬러 생성 실패' }, { status: 500 })
 
       const colorPath = `${user.id}/${timestamp}-${styleId}-color.png`
-      await supabaseAdmin.storage.from('paperdolly_images').upload(colorPath, colorBuffer, { contentType: 'image/png' })
-      const { data: colorData } = supabaseAdmin.storage.from('paperdolly_images').getPublicUrl(colorPath)
+      const colorUrl = await uploadImage(colorPath, colorBuffer)
 
       return NextResponse.json({
         step: 'color_done',
-        colorUrl: colorData.publicUrl,
+        colorUrl,
         style: styleId,
         timestamp,
       })
     }
 
     return NextResponse.json({ error: '잘못된 step' }, { status: 400 })
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : '생성 중 오류가 발생했습니다'
     console.error('Generation error:', err)
-    return NextResponse.json({ error: err.message || '생성 중 오류가 발생했습니다' }, { status: 500 })
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
 

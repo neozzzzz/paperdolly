@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Background circle -->
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ec4899"/>
+      <stop offset="100%" style="stop-color:#a855f7"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+  <!-- Scissors ✂️ stylized -->
+  <g transform="translate(64,36)">
+    <!-- Doll head -->
+    <circle cx="0" cy="0" r="16" fill="#fff"/>
+    <!-- Doll body (dress shape) -->
+    <path d="M-12,14 Q-16,40 -20,56 L20,56 Q16,40 12,14 Z" fill="#fff"/>
+    <!-- Doll arms -->
+    <line x1="-12" y1="20" x2="-24" y2="32" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+    <line x1="12" y1="20" x2="24" y2="32" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+    <!-- Doll legs -->
+    <line x1="-6" y1="56" x2="-8" y2="72" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+    <line x1="6" y1="56" x2="8" y2="72" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+    <!-- Dashed cut line -->
+    <rect x="-26" y="-22" width="52" height="100" rx="12" fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="5,4" opacity="0.5"/>
+  </g>
+</svg>

@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     const mimeType = photo.type || 'image/jpeg'
 
     const response = await genai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: process.env.GEMINI_FLASH_MODEL || 'gemini-2.0-flash',
       contents: [
         {
           role: 'user',

@@ -1,24 +1,9 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-
-async function getSupabase() {
-  const cookieStore = await cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll(c) { c.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) },
-      },
-    }
-  )
-}
+import { createClient } from '@/lib/supabase/server'
 
 // 이력 조회
 export async function GET() {
-  const supabase = await getSupabase()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: '로그인 필요' }, { status: 401 })
 
@@ -35,7 +20,7 @@ export async function GET() {
 
 // 이력 저장
 export async function POST(request: Request) {
-  const supabase = await getSupabase()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: '로그인 필요' }, { status: 401 })
 

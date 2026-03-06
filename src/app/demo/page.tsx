@@ -102,7 +102,7 @@ export default function DemoPage() {
   const [results, setResults] = useState<Record<string, DemoResult>>({})
   const resultsRef = React.useRef<Record<string, DemoResult>>({})
   const updateResults = (updater: (prev: Record<string, DemoResult>) => Record<string, DemoResult>) => {
-    updateResults((prev) => {
+    setResults((prev) => {
       const next = updater(prev)
       resultsRef.current = next
       return next
