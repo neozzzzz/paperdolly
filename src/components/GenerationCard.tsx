@@ -38,9 +38,10 @@ export default function GenerationCard({ gen }: { gen: Generation }) {
     } catch { alert('인쇄 준비 실패') }
   }
 
-  const styleLabel = gen.style.includes(':')
-    ? gen.style.split(':')[1]
-    : gen.style === 'sd' ? 'SD' : gen.style === 'simple' ? '심플' : gen.style === 'fashion' ? '패션' : gen.style
+  const baseStyle = gen.style.includes(':') ? gen.style.split(':')[0] : gen.style
+  const themeName = gen.style.includes(':') ? gen.style.split(':')[1] : ''
+  const baseName = baseStyle === 'sd' ? 'SD' : baseStyle === 'simple' ? '심플' : baseStyle === 'fashion' ? '패션' : baseStyle
+  const styleLabel = themeName ? `${baseName} · ${themeName}` : baseName
 
   return (
     <>

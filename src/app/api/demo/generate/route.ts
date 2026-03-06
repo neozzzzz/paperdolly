@@ -65,6 +65,13 @@ function clampStep(step: string): 'character' | 'paperdoll' | 'color' | null {
 }
 
 export async function POST(request: Request) {
+  // IP-based rate limit: 10 requests per 10 minutes
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const { checkRateLimit } = await import('@/lib/rateLimit')
+  if (!checkRateLimit(`demo:${ip}`, 10, 10 * 60 * 1000)) {
+    return NextResponse.json({ error: '너무 많은 요청이에요. 잠시 후 다시 시도해주세요.' }, { status: 429 })
+  }
+
   try {
     const body = await request.json()
     const step = clampStep(body.step)

@@ -92,6 +92,13 @@ export default function CreatePage() {
     } catch { alert('인쇄 준비 실패') }
   }
 
+  // 생성 중 이탈 방지
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => { if (generating) { e.preventDefault() } }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [generating])
+
   // 테마 로드
   useEffect(() => {
     fetch('/api/themes').then(r => r.json()).then(d => {
@@ -114,6 +121,11 @@ export default function CreatePage() {
 
   const processFile = async (file: File) => {
     if (!file.type.startsWith('image/')) return
+    if (file.size > 10 * 1024 * 1024) {
+      alert('사진 크기가 너무 커요 (최대 10MB)')
+      return
+    }
+    if (photoPreview) URL.revokeObjectURL(photoPreview)
     setPhoto(file)
     setPhotoPreview(URL.createObjectURL(file))
     setAnalyzing(true)
@@ -255,7 +267,7 @@ export default function CreatePage() {
       setStep(3)
     } catch (err: unknown) {
       alert('생성 실패: ' + (err instanceof Error ? err.message : '다시 시도해주세요'))
-      setStep(1)
+      setStep(2); setShowThemeStep(true)
     } finally { setGenerating(false); setProgress('') }
   }
 
@@ -348,7 +360,10 @@ export default function CreatePage() {
                     </div>
                   )}
                   {!analyzing && features && (
-                    <p className="mt-4 text-sm text-green-600 font-medium">✅ 특징 분석 완료!</p>
+                    <div className="mt-4">
+                      <p className="text-sm text-green-600 font-medium">✅ 특징 분석 완료!</p>
+                      <p className="text-xs text-gray-400 mt-1">클릭하면 다른 사진으로 변경할 수 있어요</p>
+                    </div>
                   )}
                 </div>
               ) : (
@@ -446,6 +461,12 @@ export default function CreatePage() {
             <h2 className="text-2xl font-bold mb-2 text-center">🎭 테마를 선택해주세요</h2>
             <p className="text-gray-500 text-sm text-center mb-6">어떤 의상을 입혀볼까요?</p>
 
+            {sortedThemes.length === 0 && (
+              <div className="text-center py-8 mb-6">
+                <div className="text-4xl mb-2">🎭</div>
+                <p className="text-gray-400">테마를 불러오는 중이에요...</p>
+              </div>
+            )}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
               {sortedThemes.map((theme) => (
                 <div key={theme.id} className="relative">

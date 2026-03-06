@@ -7,7 +7,6 @@ import Footer from '@/components/Footer'
 
 type Generation = {
   id: string
-  features: string
   style: string
   coloring_url: string
   color_url: string | null
@@ -33,10 +32,20 @@ export default function GalleryPage() {
     fetchGallery()
   }, [])
 
-  const filtered = filter === 'all' ? generations : generations.filter(g => g.style === filter)
+  const getBaseStyle = (s: string) => s.includes(':') ? s.split(':')[0] : s
+  const getThemeName = (s: string) => s.includes(':') ? s.split(':')[1] : ''
+  const filtered = filter === 'all' ? generations : generations.filter(g => getBaseStyle(g.style) === filter)
 
-  const styleLabel = (s: string) => s === 'sd' ? 'SD 귀여운' : s === 'simple' ? '심플' : '패션'
-  const styleColor = (s: string) => s === 'sd' ? 'bg-pink-100 text-pink-600' : s === 'simple' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'
+  const styleLabel = (s: string) => {
+    const base = getBaseStyle(s)
+    const theme = getThemeName(s)
+    const baseName = base === 'sd' ? 'SD' : base === 'simple' ? '심플' : '패션'
+    return theme ? `${baseName} · ${theme}` : baseName
+  }
+  const styleColor = (s: string) => {
+    const base = getBaseStyle(s)
+    return base === 'sd' ? 'bg-pink-100 text-pink-600' : base === 'simple' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -96,8 +105,7 @@ export default function GalleryPage() {
                   />
                 </div>
                 <div className="p-3">
-                  <p className="text-sm text-gray-700 truncate">{gen.features}</p>
-                  <div className="flex items-center justify-between mt-2">
+                  <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">
                       {new Date(gen.created_at).toLocaleDateString('ko-KR')}
                     </span>

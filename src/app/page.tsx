@@ -144,7 +144,8 @@ export default function Home() {
       <section id="pricing" className="py-12 px-4 bg-white">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-3xl font-bold text-center mb-4">요금제</h2>
-          <p className="text-center text-gray-500 mb-12">부담 없이 시작하세요</p>
+          <p className="text-center text-gray-500 mb-2">부담 없이 시작하세요</p>
+          <p className="text-center text-xs text-gray-400 mb-12">🚧 유료 요금제는 준비 중입니다. 현재 무료 체험만 가능해요!</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {plans.map((plan) => (
               <div

@@ -1,7 +1,7 @@
 'use client'
 
 import { createClient } from '@/lib/supabase/client'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Header from '@/components/Header'
@@ -10,6 +10,17 @@ import Footer from '@/components/Footer'
 export default function LoginPageV1_1() {
   const supabase = createClient()
   const router = useRouter()
+
+  // URL에서 에러 파라미터 읽기
+  const [loginError, setLoginError] = useState<string | null>(null)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const err = params.get('error')
+    if (err) {
+      const desc = params.get('desc')
+      setLoginError(desc || '로그인 중 오류가 발생했어요. 다시 시도해주세요.')
+    }
+  }, [])
 
   // 이미 로그인되어 있으면 대시보드로
   useEffect(() => {
@@ -49,6 +60,12 @@ export default function LoginPageV1_1() {
           <h1 className="text-2xl font-bold mb-2">페이퍼돌리에 오신 걸 환영해요!</h1>
           <p className="text-gray-500 mb-8">3초면 시작! 로그인하고 바로 만들어보세요</p>
 
+          {loginError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">
+              ⚠️ {loginError}
+            </div>
+          )}
+
           <button
             onClick={handleGoogleLogin}
             className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white border-2 border-gray-200 rounded-2xl hover:border-pink-300 hover:shadow-md transition cursor-pointer"
@@ -73,8 +90,7 @@ export default function LoginPageV1_1() {
           </button>
 
           <p className="mt-6 text-xs text-gray-400">
-            로그인 시 <Link href="#" className="underline">이용약관</Link> 및{' '}
-            <Link href="#" className="underline">개인정보처리방침</Link>에 동의합니다.
+            로그인 시 이용약관 및 개인정보처리방침에 동의합니다.
           </p>
         </div>
       </div>

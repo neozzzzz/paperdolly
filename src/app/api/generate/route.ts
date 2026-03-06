@@ -61,13 +61,19 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: '로그인이 필요합니다' }, { status: 401 })
 
+  // Body size check (reject >10MB)
+  const contentLength = parseInt(request.headers.get('content-length') || '0', 10)
+  if (contentLength > 10 * 1024 * 1024) {
+    return NextResponse.json({ error: '요청이 너무 큽니다 (최대 10MB)' }, { status: 413 })
+  }
+
   const body = await request.json()
   const { step, features, timestamp: ts } = body
   const timestamp = ts || Date.now()
 
-  // 사용량 제한 체크 (character step에서만 — 첫 생성 시점)
-  if (step === 'character' && !UNLIMITED_EMAILS.includes(user.email || '')) {
-    const today = new Date().toISOString().split('T')[0]
+  // 사용량 제한 체크 (모든 생성 step에서)
+  if (['character', 'paperdoll', 'color'].includes(step) && !UNLIMITED_EMAILS.includes(user.email || '')) {
+    const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' })).toISOString().split('T')[0]
     const { count } = await supabaseAdmin
       .from('paperdolly_generations')
       .select('*', { count: 'exact', head: true })

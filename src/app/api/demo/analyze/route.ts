@@ -4,6 +4,12 @@ import { NextResponse } from 'next/server'
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! })
 
 export async function POST(request: Request) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const { checkRateLimit } = await import('@/lib/rateLimit')
+  if (!checkRateLimit(`demo-analyze:${ip}`, 10, 10 * 60 * 1000)) {
+    return NextResponse.json({ error: '너무 많은 요청이에요. 잠시 후 다시 시도해주세요.' }, { status: 429 })
+  }
+
   const formData = await request.formData()
   const photo = formData.get('photo') as File
   if (!photo) return NextResponse.json({ error: '사진을 업로드해주세요' }, { status: 400 })

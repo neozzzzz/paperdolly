@@ -1,6 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+// Note: auth callback needs inline createServerClient because it must
+// call exchangeCodeForSession which sets cookies differently than createClient()
 
 export async function GET(request: Request) {
   const url = new URL(request.url)
